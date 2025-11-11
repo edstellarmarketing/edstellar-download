@@ -121,7 +121,7 @@
             align-items: center;
             justify-content: center;
             gap: 12px;
-            transition: background 0.3s;
+            transition: all 0.3s;
             text-decoration: none;
         }
 
@@ -135,8 +135,14 @@
             border: 2px solid #0077b5;
         }
 
-        .linkedin-button.secondary:hover {
+        .linkedin-button.secondary:hover:not(.disabled) {
             background: #f3f6f8;
+        }
+
+        .linkedin-button.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
         }
 
         .linkedin-icon {
@@ -262,6 +268,40 @@
             color: #666;
             font-size: 14px;
         }
+
+        .timer-container {
+            text-align: center;
+            padding: 20px;
+            background: #fff3cd;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .timer-container.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .timer-display {
+            font-size: 48px;
+            font-weight: bold;
+            color: #0077b5;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .timer-message {
+            color: #856404;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .timer-instruction {
+            color: #856404;
+            font-size: 12px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -301,7 +341,7 @@
                 </div>
             </div>
 
-            <!-- Step 3: Follow Prompt -->
+            <!-- Step 3: Follow Prompt with Timer -->
             <div class="content-section" id="follow-section">
                 <div class="popup-header">
                     <h1>👋 Almost There!</h1>
@@ -317,20 +357,28 @@
                 </div>
 
                 <div class="info-box warning">
-                    <p><strong>Quick Step:</strong> Click the button below to visit our LinkedIn page, click the "Follow" button, then come back here to download your catalogue.</p>
+                    <p><strong>Quick Step:</strong> Click the button below to visit our LinkedIn page and click the "Follow" button. You have 20 seconds to complete this action.</p>
+                </div>
+
+                <!-- Timer Display -->
+                <div class="timer-container" id="timer-container">
+                    <div class="timer-message">⏱️ Time to Follow</div>
+                    <div class="timer-display" id="timer-display">20</div>
+                    <div class="timer-instruction">Follow Edstellar on LinkedIn before time runs out!</div>
                 </div>
 
                 <div class="button-group">
                     <a href="https://www.linkedin.com/company/edstellarofficial/" 
                        target="_blank" 
-                       class="linkedin-button">
+                       class="linkedin-button"
+                       id="follow-linkedin-btn">
                         <svg class="linkedin-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
                         </svg>
                         Follow Edstellar on LinkedIn
                     </a>
                     
-                    <button class="linkedin-button secondary" id="confirm-follow-btn">
+                    <button class="linkedin-button secondary disabled" id="confirm-follow-btn">
                         ✓ I've Followed - Continue
                     </button>
                 </div>
@@ -361,8 +409,12 @@
             redirectUri: 'https://edstellar-download.vercel.app',
             scope: 'openid profile email',
             state: Math.random().toString(36).substring(7),
-            companyUrl: 'https://www.linkedin.com/company/edstellarofficial/'
+            companyUrl: 'https://www.linkedin.com/company/edstellarofficial/',
+            timerDuration: 20 // seconds
         };
+
+        let countdownTimer = null;
+        let timeRemaining = CONFIG.timerDuration;
 
         // Step management
         function showStep(stepNumber) {
@@ -380,6 +432,57 @@
             document.getElementById(sections[stepNumber - 1]).classList.add('active');
         }
 
+        // Timer functions
+        function startCountdown() {
+            const timerDisplay = document.getElementById('timer-display');
+            const timerContainer = document.getElementById('timer-container');
+            const confirmBtn = document.getElementById('confirm-follow-btn');
+            
+            // Show timer
+            timerContainer.classList.add('active');
+            
+            // Reset timer
+            timeRemaining = CONFIG.timerDuration;
+            timerDisplay.textContent = timeRemaining;
+            
+            // Start countdown
+            countdownTimer = setInterval(() => {
+                timeRemaining--;
+                timerDisplay.textContent = timeRemaining;
+                
+                // Change color as time runs out
+                if (timeRemaining <= 5) {
+                    timerDisplay.style.color = '#dc3545';
+                } else if (timeRemaining <= 10) {
+                    timerDisplay.style.color = '#ffc107';
+                }
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(countdownTimer);
+                    // Enable the button and reload
+                    enableContinueButton();
+                }
+            }, 1000);
+        }
+
+        function enableContinueButton() {
+            const confirmBtn = document.getElementById('confirm-follow-btn');
+            const timerContainer = document.getElementById('timer-container');
+            
+            // Hide timer
+            timerContainer.classList.remove('active');
+            
+            // Enable button
+            confirmBtn.classList.remove('disabled');
+            confirmBtn.style.background = 'white';
+            confirmBtn.style.opacity = '1';
+            confirmBtn.style.cursor = 'pointer';
+            confirmBtn.style.pointerEvents = 'auto';
+            
+            // Store that timer completed
+            localStorage.setItem('edstellar_timer_completed', 'true');
+        }
+
         // LinkedIn OAuth
         document.getElementById('linkedin-auth-btn').addEventListener('click', function() {
             const authUrl = `https://www.linkedin.com/oauth/v2/authorization?` +
@@ -392,11 +495,19 @@
             window.location.href = authUrl;
         });
 
+        // Follow LinkedIn button
+        document.getElementById('follow-linkedin-btn').addEventListener('click', function() {
+            // Start the countdown when user clicks to visit LinkedIn
+            startCountdown();
+        });
+
         // Confirm follow button
         document.getElementById('confirm-follow-btn').addEventListener('click', function() {
-            // Store that they confirmed following
-            localStorage.setItem('edstellar_followed', 'true');
-            showStep(4);
+            if (!this.classList.contains('disabled')) {
+                // Store that they confirmed following
+                localStorage.setItem('edstellar_followed', 'true');
+                showStep(4);
+            }
         });
 
         // Handle OAuth callback
@@ -409,12 +520,13 @@
                 // Show loading
                 showStep(2);
                 
-                // Simulate verification (in reality, you'd exchange the code for a token)
+                // Simulate verification
                 setTimeout(() => {
-                    // Check if they already followed
+                    // Check if they already completed the timer
+                    const timerCompleted = localStorage.getItem('edstellar_timer_completed');
                     const alreadyFollowed = localStorage.getItem('edstellar_followed');
                     
-                    if (alreadyFollowed) {
+                    if (alreadyFollowed && timerCompleted) {
                         showStep(4); // Go directly to download
                     } else {
                         showStep(3); // Show follow prompt
@@ -425,7 +537,14 @@
 
         // Initialize
         window.addEventListener('DOMContentLoaded', function() {
+            // Check if returning from LinkedIn callback
             handleCallback();
+            
+            // If on follow page and timer was completed, enable button
+            const timerCompleted = localStorage.getItem('edstellar_timer_completed');
+            if (timerCompleted && document.getElementById('follow-section').classList.contains('active')) {
+                enableContinueButton();
+            }
         });
     </script>
 </body>
